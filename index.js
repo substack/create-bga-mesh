@@ -1,8 +1,8 @@
 var tou8 = require('utf8-to-uint8array')
-
 var sizes = {
   float: 4, vec2: 8, vec3: 12, vec4: 16,
-  mat2: 16, mat3: 36, mat4: 64
+  mat2: 16, mat3: 36, mat4: 64,
+  uint16: 2, uint32: 4
 }
 var counts = {
   float: 1, vec2: 2, vec3: 3, vec4: 4,
@@ -25,9 +25,13 @@ module.exports = function (opts) {
   var edges = opts.edges || []
   var ecount = Array.isArray(edges[0])
     ? edges.length : edges.length / 3
+  var etype = opts.edgeType !== undefined
+    ? opts.edgeType : (ecount > 65535 ? 'uint32' : 'uint16')
   var triangles = opts.triangles || []
   var tcount = Array.isArray(triangles[0])
     ? triangles.length : triangles.length / 3
+  var ttype = opts.triangleType !== undefined
+    ? opts.triangleType : (tcount > 65535 ? 'uint32' : 'uint16')
   var littleEndian = opts.endian === 'little'
   var header = tou8([
     'BGA 1.0',
@@ -36,23 +40,24 @@ module.exports = function (opts) {
       return 'attribute ' + attrs[key].type + ' ' + key
     }).join('\n'),
     vcount + ' vertex',
-    ecount + ' edge ' + (ecount > 65535 ? 'uint32' : 'uint16'),
-    tcount + ' triangle ' + (tcount > 65535 ? 'uint32' : 'uint16'),
+    ecount + ' edge ' + etype,
+    tcount + ' triangle ' + ttype,
     ''
   ].join('\n'))
   var vsize = 0
   for (var i = 0; i < attrKeys.length; i++) {
     vsize += sizes[attrs[attrKeys[i]].type]
   }
-  var esize = ecount > 65535 ? 4 : 2
-  var tsize = tcount > 65535 ? 4 : 2
+  var esize = sizes[etype]
+  var tsize = sizes[ttype]
   var data = new Uint8Array(header.length
-    + vsize*vcount + esize*ecount + tsize*ecount)
+    + vsize*vcount + esize*2*ecount + tsize*3*tcount)
   var dv = new DataView(data.buffer)
   for (var i = 0; i < header.length; i++) {
     data[i] = header[i]
   }
   var offset = header.length
+  // vertices
   for (var i = 0; i < vcount; i++) {
     for (var j = 0; j < attrKeys.length; j++) {
       var key = attrKeys[j]
@@ -68,6 +73,76 @@ module.exports = function (opts) {
           offset += 4
         }
       }
+    }
+  }
+  // edges
+  var flatEdges = !Array.isArray(edges[0])
+  if (etype === 'uint16' && flatEdges) {
+    for (var i = 0; i < ecount; i++) {
+      dv.setUint16(offset, edges[i*2+0], littleEndian)
+      offset += 2
+      dv.setUint16(offset, edges[i*2+1], littleEndian)
+      offset += 2
+    }
+  } else if (etype === 'uint16') {
+    for (var i = 0; i < ecount; i++) {
+      dv.setUint16(offset, edges[i][0], littleEndian)
+      offset += 2
+      dv.setUint16(offset, edges[i][1], littleEndian)
+      offset += 2
+    }
+  } else if (etype === 'uint32' && flatEdges) {
+    for (var i = 0; i < ecount; i++) {
+      dv.setUint32(offset, edges[i*2+0], littleEndian)
+      offset += 4
+      dv.setUint32(offset, edges[i*2+1], littleEndian)
+      offset += 4
+    }
+  } else if (etype === 'uint32') {
+    for (var i = 0; i < ecount; i++) {
+      dv.setUint32(offset, edges[i*2+0], littleEndian)
+      offset += 4
+      dv.setUint32(offset, edges[i*2+1], littleEndian)
+      offset += 4
+    }
+  }
+  // triangles
+  var flatTriangles = !Array.isArray(triangles[0])
+  if (ttype === 'uint16' && flatTriangles) {
+    for (var i = 0; i < tcount; i++) {
+      dv.setUint16(offset, triangles[i*3+0], littleEndian)
+      offset += 2
+      dv.setUint16(offset, triangles[i*3+1], littleEndian)
+      offset += 2
+      dv.setUint16(offset, triangles[i*3+2], littleEndian)
+      offset += 2
+    }
+  } else if (ttype === 'uint16') {
+    for (var i = 0; i < tcount; i++) {
+      dv.setUint16(offset, triangles[i][0], littleEndian)
+      offset += 2
+      dv.setUint16(offset, triangles[i][1], littleEndian)
+      offset += 2
+      dv.setUint16(offset, triangles[i][2], littleEndian)
+      offset += 2
+    }
+  } else if (ttype === 'uint32' && flatTriangles) {
+    for (var i = 0; i < tcount; i++) {
+      dv.setUint32(offset, triangles[i*3+0], littleEndian)
+      offset += 4
+      dv.setUint32(offset, triangles[i*3+1], littleEndian)
+      offset += 4
+      dv.setUint32(offset, triangles[i*3+2], littleEndian)
+      offset += 4
+    }
+  } else if (ttype === 'uint32') {
+    for (var i = 0; i < tcount; i++) {
+      dv.setUint32(offset, triangles[i][0], littleEndian)
+      offset += 4
+      dv.setUint32(offset, triangles[i][1], littleEndian)
+      offset += 4
+      dv.setUint32(offset, triangles[i][2], littleEndian)
+      offset += 4
     }
   }
   return data
