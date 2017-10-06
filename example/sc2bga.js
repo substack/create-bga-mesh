@@ -1,13 +1,15 @@
-var teapot = require('teapot')
 var createBGA = require('../')
+var fs = require('fs')
+var file = process.argv[2]
+var mesh = JSON.parse(fs.readFileSync(file,'utf8'))
 
 process.stdout.write(Buffer.from(createBGA({
   endian: 'little',
   attributes: {
     position: {
       type: 'vec3',
-      data: teapot.positions
+      data: mesh.positions
     }
   },
-  triangles: teapot.cells
+  triangles: mesh.cells
 })))

@@ -26,12 +26,12 @@ module.exports = function (opts) {
   var ecount = Array.isArray(edges[0])
     ? edges.length : edges.length / 3
   var etype = opts.edgeType !== undefined
-    ? opts.edgeType : (ecount > 65535 ? 'uint32' : 'uint16')
+    ? opts.edgeType : (vcount > 65535 ? 'uint32' : 'uint16')
   var triangles = opts.triangles || []
   var tcount = Array.isArray(triangles[0])
     ? triangles.length : triangles.length / 3
   var ttype = opts.triangleType !== undefined
-    ? opts.triangleType : (tcount > 65535 ? 'uint32' : 'uint16')
+    ? opts.triangleType : (vcount > 65535 ? 'uint32' : 'uint16')
   var littleEndian = opts.endian === 'little'
   var header = tou8([
     'BGA 1.0',
@@ -42,7 +42,7 @@ module.exports = function (opts) {
     vcount + ' vertex',
     ecount + ' edge ' + etype,
     tcount + ' triangle ' + ttype,
-    ''
+    '\n'
   ].join('\n'))
   var vsize = 0
   for (var i = 0; i < attrKeys.length; i++) {
