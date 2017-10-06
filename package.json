@@ -1,0 +1,18 @@
+{
+  "name": "create-bga-mesh",
+  "version": "1.0.0",
+  "description": "generate a bga mesh file",
+  "dependencies": {
+    "utf8-to-uint8array": "^1.0.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "ssb://%v9llERHzFn0rkZsXpssxo8FO2YxqSSdabrHTPxkPWm0=.sha256"
+  },
+  "homepage": "https://git.scuttlebot.io/%25v9llERHzFn0rkZsXpssxo8FO2YxqSSdabrHTPxkPWm0=.sha256",
+  "keywords": [
+    "mesh",
+    "bga"
+  ],
+  "license": "BSD"
+}
