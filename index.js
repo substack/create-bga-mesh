@@ -5,145 +5,94 @@ var sizes = {
   uint16: 2, uint32: 4
 }
 var counts = {
+  uint8: 1, uint16: 1, uint32: 1,
   float: 1, vec2: 2, vec3: 3, vec4: 4,
   mat2: 4, mat3: 9, mat4: 16
 }
 
 module.exports = function (opts) {
-  var attrs = opts.attributes
-  var attrKeys = Object.keys(attrs)
-  var attrIsFlat = {}, attrSize = {}, attrCount = {}
-  for (var i = 0; i < attrKeys.length; i++) {
-    var key = attrKeys[i]
-    attrIsFlat[key] = !Array.isArray(attrs[key].data[0])
-    attrSize[key] = sizes[attrs[key].type]
-    attrCount[key] = counts[attrs[key].type]
+  var endian = opts.endian
+  if (endian !== 'little' && endian !== 'big') {
+    throw new Error('endian must be "big" or "little"')
   }
-  var firstAttr = attrs[attrKeys[0]]
-  var vcount = Array.isArray(firstAttr.data)
-    ? firstAttr.data.length : firstAttr.data.length / sizes[firstAttr.type]
-  var edges = opts.edges || []
-  var ecount = Array.isArray(edges[0])
-    ? edges.length : edges.length / 3
-  var etype = opts.edgeType !== undefined
-    ? opts.edgeType : (vcount > 65535 ? 'uint32' : 'uint16')
-  var triangles = opts.triangles || []
-  var tcount = Array.isArray(triangles[0])
-    ? triangles.length : triangles.length / 3
-  var ttype = opts.triangleType !== undefined
-    ? opts.triangleType : (vcount > 65535 ? 'uint32' : 'uint16')
-  var littleEndian = opts.endian === 'little'
-  var header = tou8([
-    'BGA 1.0',
-    opts.endian + ' endian',
-    attrKeys.map(function (key) {
-      return 'attribute ' + attrs[key].type + ' ' + key
-    }).join('\n'),
-    vcount + ' vertex',
-    ecount + ' edge ' + etype,
-    tcount + ' triangle ' + ttype,
-    '\n'
-  ].join('\n'))
-  var vsize = 0
-  for (var i = 0; i < attrKeys.length; i++) {
-    vsize += sizes[attrs[attrKeys[i]].type]
+  var littleEndian = endian === 'little'
+  var buffers = opts.buffers || []
+  var headerLines = [
+    'BGA 2.0',
+    endian + ' endian'
+  ]
+  var bufferGroups = {}, countOrder = [], bufferNames = []
+  var lengths = {}, isFlat = {}
+  var dataSize = 0
+  for (var i = 0; i < buffers.length; i++) {
+    var b = buffers[i]
+    var ix = b.name.indexOf('.')
+    var bufname = ix >= 0 ? b.name.substring(0,ix) : b.name
+    var first = !bufferGroups.hasOwnProperty(bufname)
+    if (first) bufferGroups[bufname] = []
+    bufferGroups[bufname].push({
+      type: b.type,
+      name: ix >= 0 ? b.name.substring(ix) : '',
+      data: b.data
+    })
+    ix = b.type.indexOf('[')
+    var type = ix >= 0 ? b.type.substring(ix,0) : b.type
+    var quantity = ix >= 0 ? b.type.substring(ix) : ''
+    headerLines.push(type + ' ' + b.name + quantity)
+    var len
+    if (first) {
+      len = lengths[bufname] = getCount(type, b.data)
+      countOrder.push(len + ' ' + bufname)
+      bufferNames.push(bufname)
+    } else {
+      len = lengths[bufname]
+    }
+    dataSize += sizes[type] * len
   }
-  var esize = sizes[etype]
-  var tsize = sizes[ttype]
-  var data = new Uint8Array(header.length
-    + vsize*vcount + esize*2*ecount + tsize*3*tcount)
+  for (var i = 0; i < countOrder.length; i++) {
+    headerLines.push(countOrder[i])
+  }
+  headerLines.push('\n')
+
+  var header = tou8(headerLines.join('\n'))
+  dataSize += header.length
+  var data = new Uint8Array(dataSize)
   var dv = new DataView(data.buffer)
   for (var i = 0; i < header.length; i++) {
     data[i] = header[i]
   }
   var offset = header.length
-  // vertices
-  for (var i = 0; i < vcount; i++) {
-    for (var j = 0; j < attrKeys.length; j++) {
-      var key = attrKeys[j]
-      var r = attrs[key]
-      if (attrIsFlat[key] === true) {
-        for (var k = 0; k < attrCount[key]; k++) {
-          dv.setFloat32(offset, r.data[i*4+k], littleEndian)
+
+  for (var i = 0; i < bufferNames.length; i++) {
+    var bufname = bufferNames[i]
+    var group = bufferGroups[bufname]
+    var len = lengths[bufname]
+    for (var j = 0; j < len; j++) {
+      for (var k = 0; k < group.length; k++) {
+        var g = group[k]
+        if (b.type === 'uint8') {
+          dv.setUint8(offset, g.data[j], littleEndian)
+          offset += 1
+        } else if (b.type === 'uint16') {
+          dv.setUint16(offset, g.data[j], littleEndian)
+          offset += 2
+        } else if (b.type === 'uint32') {
+          dv.setUint32(offset, g.data[j], littleEndian)
           offset += 4
-        }
-      } else {
-        for (var k = 0; k < attrCount[key]; k++) {
-          dv.setFloat32(offset, r.data[i][k], littleEndian)
-          offset += 4
+        } else {
+          var c = counts[g.type]
+          for (var n = 0; n < c; n++) {
+            dv.setFloat32(offset, g.data[j*c+n], littleEndian)
+            offset += 4
+          }
         }
       }
     }
   }
-  // edges
-  var flatEdges = !Array.isArray(edges[0])
-  if (etype === 'uint16' && flatEdges) {
-    for (var i = 0; i < ecount; i++) {
-      dv.setUint16(offset, edges[i*2+0], littleEndian)
-      offset += 2
-      dv.setUint16(offset, edges[i*2+1], littleEndian)
-      offset += 2
-    }
-  } else if (etype === 'uint16') {
-    for (var i = 0; i < ecount; i++) {
-      dv.setUint16(offset, edges[i][0], littleEndian)
-      offset += 2
-      dv.setUint16(offset, edges[i][1], littleEndian)
-      offset += 2
-    }
-  } else if (etype === 'uint32' && flatEdges) {
-    for (var i = 0; i < ecount; i++) {
-      dv.setUint32(offset, edges[i*2+0], littleEndian)
-      offset += 4
-      dv.setUint32(offset, edges[i*2+1], littleEndian)
-      offset += 4
-    }
-  } else if (etype === 'uint32') {
-    for (var i = 0; i < ecount; i++) {
-      dv.setUint32(offset, edges[i*2+0], littleEndian)
-      offset += 4
-      dv.setUint32(offset, edges[i*2+1], littleEndian)
-      offset += 4
-    }
-  }
-  // triangles
-  var flatTriangles = !Array.isArray(triangles[0])
-  if (ttype === 'uint16' && flatTriangles) {
-    for (var i = 0; i < tcount; i++) {
-      dv.setUint16(offset, triangles[i*3+0], littleEndian)
-      offset += 2
-      dv.setUint16(offset, triangles[i*3+1], littleEndian)
-      offset += 2
-      dv.setUint16(offset, triangles[i*3+2], littleEndian)
-      offset += 2
-    }
-  } else if (ttype === 'uint16') {
-    for (var i = 0; i < tcount; i++) {
-      dv.setUint16(offset, triangles[i][0], littleEndian)
-      offset += 2
-      dv.setUint16(offset, triangles[i][1], littleEndian)
-      offset += 2
-      dv.setUint16(offset, triangles[i][2], littleEndian)
-      offset += 2
-    }
-  } else if (ttype === 'uint32' && flatTriangles) {
-    for (var i = 0; i < tcount; i++) {
-      dv.setUint32(offset, triangles[i*3+0], littleEndian)
-      offset += 4
-      dv.setUint32(offset, triangles[i*3+1], littleEndian)
-      offset += 4
-      dv.setUint32(offset, triangles[i*3+2], littleEndian)
-      offset += 4
-    }
-  } else if (ttype === 'uint32') {
-    for (var i = 0; i < tcount; i++) {
-      dv.setUint32(offset, triangles[i][0], littleEndian)
-      offset += 4
-      dv.setUint32(offset, triangles[i][1], littleEndian)
-      offset += 4
-      dv.setUint32(offset, triangles[i][2], littleEndian)
-      offset += 4
-    }
-  }
   return data
+}
+
+function getCount (type, data) {
+  var isFlat = data.length > 0 && !Array.isArray(data[0])
+  return isFlat ? data.length / counts[type] : data.length
 }
