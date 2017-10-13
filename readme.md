@@ -10,20 +10,15 @@ turn a simplicial complex json file (like [bunny][] or [teapot][])
 into a BGA file:
 
 ``` js
-var createBGA = require('')
-var fs = require('fs')
-var file = process.argv[2]
-var mesh = JSON.parse(fs.readFileSync(file,'utf8'))
+var createBGA = require('create-bga-mesh')
+var mesh = JSON.parse(require('teapot'))
 
 process.stdout.write(Buffer.from(createBGA({
   endian: 'little',
-  attributes: {
-    position: {
-      type: 'vec3',
-      data: mesh.positions
-    }
-  },
-  triangles: mesh.cells
+  buffers: [
+    { type: 'vec3', name: 'vertex.position', data: mesh.positions },
+    { type: 'uint32[3]', name: 'triangle.cell', data: mesh.cells }
+  ]
 })))
 ```
 
