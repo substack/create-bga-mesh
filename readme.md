@@ -36,18 +36,17 @@ var createBGA = require('create-bga-mesh')
 Return a Uint8Array `data` from:
 
 * opts.endian - `'little'` or `'big'`
-* opts.attributes - object mapping vertex names to records (see below)
-* opts.edges - flat or nested array of edge vertex indices
-* opts.edgeType - `'uint16'` or `'uint32'`.
-  Set to uint32 if not set and `>65535` vertices.
-* opts.triangles - flat or nested array of triangle vertex indices
-* opts.triangleType - `'uint16'` or `'uint32'`
-  Set to uint32 if not set and `>65535` vertices.
+* opts.buffers - array of buffer records (see below)
 
-Each attribute value in the `opts.attributes` object should have:
+Each `buffer` in the `opts.buffers` array should have:
 
-* attr.type - a glsl type string (float, vec2, vec3, etc)
-* attr.data - a flat or nested array of attribute data
+* `buffer.name` - string "BUFNAME.VARNAME" describing the buffer and variable
+  name to use separated by a dot
+* `buffer.type` - string type name. One of: float, vec2, vec3, vec4, mat2, mat3,
+  mat4, uint8, uint16, uint32, int8, int16, int32.
+  Optionally provide a `[n]` quantity at the end of the string.
+* `buffer.data` - flat array of array nested by quantity (or quanity implied by
+  vector or matrix type)
 
 # install
 
