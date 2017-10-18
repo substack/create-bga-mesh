@@ -1,8 +1,16 @@
 var tou8 = require('utf8-to-uint8array')
+var lcm = require('lcm')
 var sizes = {
   float: 4, vec2: 8, vec3: 12, vec4: 16,
   mat2: 16, mat3: 36, mat4: 64,
-  uint16: 2, uint32: 4
+  uint8: 1, uint16: 2, uint32: 4,
+  int8: 1, int16: 2, int32: 4
+}
+var qsizes = {
+  float: 4, vec2: 4, vec3: 4, vec4: 4,
+  mat2: 4, mat3: 4, mat4: 4,
+  uint8: 1, uint16: 2, uint32: 4,
+  int8: 1, int16: 2, int32: 4
 }
 var counts = {
   uint8: 1, uint16: 1, uint32: 1,
@@ -61,17 +69,41 @@ module.exports = function (opts) {
 
   var header = tou8(headerLines.join('\n'))
   dataSize += header.length
+  var offset = header.length
+  var padding = {}
+  for (var i = 0; i < bufferNames.length; i++) {
+    var bufname = bufferNames[i]
+    var group = bufferGroups[bufname]
+    var factor = 1
+    var len = 0
+    for (var k = 0; k < group.length; k++) {
+      var g = group[k]
+      factor = lcm(factor,qsizes[g.type])
+      len += qsizes[g.type] * g.data.length
+        * (g.flat ? 1 : counts[g.type])
+    }
+    var pad = (factor - (offset % factor)) % factor
+    padding[bufname] = pad
+    offset += pad + len
+    dataSize += pad
+  }
+
   var data = new Uint8Array(dataSize)
   var dv = new DataView(data.buffer)
   for (var i = 0; i < header.length; i++) {
     data[i] = header[i]
   }
-  var offset = header.length
+  offset = header.length
 
   for (var i = 0; i < bufferNames.length; i++) {
     var bufname = bufferNames[i]
     var group = bufferGroups[bufname]
     var len = lengths[bufname]
+    var pad = padding[bufname]
+    for (var j = 0; j < pad; j++) {
+      dv.setUint8(offset, 0, littleEndian)
+      offset += 1
+    }
     for (var j = 0; j < len; j++) {
       for (var k = 0; k < group.length; k++) {
         var g = group[k]

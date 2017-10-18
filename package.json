@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "generate a bga mesh file",
   "dependencies": {
+    "lcm": "~0.0.3",
     "utf8-to-uint8array": "^1.0.3"
   },
   "repository": {
@@ -14,5 +15,8 @@
     "mesh",
     "bga"
   ],
-  "license": "BSD"
+  "license": "BSD",
+  "devDependencies": {
+    "angle-normals": "^1.0.0"
+  }
 }
