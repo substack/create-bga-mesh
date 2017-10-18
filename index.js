@@ -1,5 +1,4 @@
 var tou8 = require('utf8-to-uint8array')
-var lcm = require('lcm')
 var sizes = {
   float: 4, vec2: 8, vec3: 12, vec4: 16,
   mat2: 16, mat3: 36, mat4: 64,
@@ -78,7 +77,7 @@ module.exports = function (opts) {
     var len = 0
     for (var k = 0; k < group.length; k++) {
       var g = group[k]
-      factor = lcm(factor,qsizes[g.type])
+      factor = flcm(factor,qsizes[g.type])
       len += qsizes[g.type] * g.data.length
         * (g.flat ? 1 : counts[g.type])
     }
@@ -169,3 +168,6 @@ function getCount (type, data) {
   var isFlat = data.length > 0 && !Array.isArray(data[0])
   return isFlat ? data.length / counts[type] : data.length
 }
+
+// fake lcm because qsizes are 1, 2, and 4
+function flcm (a, b) { return Math.max(a, b) }
