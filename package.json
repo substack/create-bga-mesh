@@ -1,6 +1,6 @@
 {
   "name": "create-bga-mesh",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "generate a bga mesh file",
   "dependencies": {
     "utf8-to-uint8array": "^1.0.3"
