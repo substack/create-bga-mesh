@@ -11,7 +11,7 @@ into a BGA file:
 
 ``` js
 var createBGA = require('create-bga-mesh')
-var mesh = JSON.parse(require('teapot'))
+var mesh = require('teapot')
 
 process.stdout.write(Buffer.from(createBGA({
   endian: 'little',
